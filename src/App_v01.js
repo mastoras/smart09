@@ -5,7 +5,9 @@ import lottery from './lottery';
 
 // Η κλάση App αποτελεί απόγονο της Component 
 // η οποία είναι θεμελιώδης στην react.
-// Σε κάθε αλλαγή κάποιας μεταβλητή state της App,
+// Σε κάθε αλλαγή κάποιου στοιχείου εντός της App,
+// π.χ. πληκτρολογώντας εντός ενός textBox,
+// ή αν τροποποιηθεί κάποια μεταβλητή state,
 // όλη η ιστοσελίδα (HTML) γίνεται refresh
 // καλώντας αυτόματα τη render()...
 // ...ΠΡΟΣΟΧΗ! ΔΕΝ γίνεται reload... ΜΟΝΟ refresh
@@ -15,62 +17,43 @@ class App extends Component {
     players: [],
     balance: '',
     value: '',
-    message: '',
-    currentAccount: ''
+    message: ''
   };
 
   // Η componentDidMount() καλείται ΜΟΝΟ την πρώτη φορά
   // που φορτώνει η ιστοσελίδα (είναι σαν την onLoad())
   async componentDidMount() {
-    try{ // Αν υπάρχει εγκατεστημένο metamask
-      // Ορισμός των state μεταβλητών
-      const manager = await lottery.methods.manager().call();
-      const players = await lottery.methods.getPlayers().call();
-      const balance = await web3.eth.getBalance(lottery.options.address);
-      this.setState({ message: '', manager, players, balance });
-      // Set up event listeners only once
-      if (!this.eventListenersSet) {
-        this.setupEventListeners();
-        this.eventListenersSet = true;
-      }
-        try { // Επικοινωνία με το metamask
-          const currentAccount = (await window.ethereum.request({ method: 'eth_requestAccounts' }))[0];
-          this.setState({ message: '', currentAccount });
-        } catch (error) { // Αν το metamask δεν έκανε accept το request
-          this.setState({ message: 'Metamask has not connected yet' });
-        }
-      } catch (error) { // Αν το metamask δεν έχει εγκατασταθεί
-      this.setState({ message: 'Metamask is not installed' });
-    }
-  }
 
-  setupEventListeners() {
-    // Όποτε αγοραστεί λαχνός να ενημερώσεις τις players & balance
-    lottery.events.PlayerEntered().on('data', async (data) => {
-      console.log(data.returnValues.player);
-      const players = await lottery.methods.getPlayers().call();
-      const balance = await web3.eth.getBalance(lottery.options.address);
-      this.setState({ players, balance });
-    });
-
-    // Όποτε γίνει κλήρωση να ενημερώσεις τις players & balance
-    // και να δημιουργήσεις τη νέα state μεταβλητή lastWinner
-    lottery.events.WinnerPicked().on('data', async (data) => {
-      console.log(data.returnValues.winner);
-      const players = await lottery.methods.getPlayers().call();
-      const balance = await web3.eth.getBalance(lottery.options.address);
-      const lastWinner = data.returnValues.winner;
-      this.setState({ lastWinner, players, balance });
-    });
-  
     // Κάθε φορά που επιλέγεται άλλο πορτοφόλι στο metamask...
     window.ethereum.on('accountsChanged', (accounts) => {
-      // ... να γίνεται refresh η σελίδα
-      const currentAccount = accounts[0];
-      this.setState({ currentAccount });
+      // ... να γίνεται reload η σελίδα, δηλ. να καλείται η componentDidMount()
+      window.location.reload();
     });
+
+    // Ορισμός των state μεταβλητών
+    const manager = await lottery.methods.manager().call();
+    const players = await lottery.methods.getPlayers().call();
+    const balance = await web3.eth.getBalance(lottery.options.address);
+    const currentAccount = (await web3.eth.getAccounts())[0]; 
+    this.setState({ manager, players, balance, currentAccount });
+
+    // Αν δεν υπήρχε παραπάνω η window.ethereum.on('accountsChanged', (accounts)
+    // this.refreshAccount();
   }
-  
+
+// Αν δεν υπήρχε παραπάνω η window.ethereum.on('accountsChanged', (accounts)
+//   refreshAccount = async () => {
+//     const accounts = await web3.eth.getAccounts();
+
+//     if (this.state.currentAccount !== accounts[0]) {
+//       this.setState({ currentAccount: accounts[0] });
+//     }
+
+//     setTimeout(() => {
+//       this.refreshAccount();
+//     }, 1000);
+//   };
+
   // Όταν πατηθεί το κουμπί "Enter"
   onSubmit = async event => {
     event.preventDefault();
@@ -135,9 +118,6 @@ class App extends Component {
         <hr /> {/*  -------------------- Οριζόντια γραμμή -------------------- */}
 
         <h1>{this.state.message}</h1>
-        {this.state.lastWinner &&
-         <h3>Last Winner Address: {this.state.lastWinner}</h3>
-        }
       </div>
     );
   }
